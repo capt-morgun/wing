@@ -94,35 +94,34 @@ enum WindowManager {
 
         let savedFrame = CGRect(origin: pos, size: size)
 
-        // Drag point: centre-x, 8 px from top — within the title bar area
-        let dragPoint = CGPoint(x: pos.x + size.width / 2, y: pos.y + 8)
+        guard let wid = cgWindowID(for: window),
+              let uuid = NSScreen.main?.uuid() else { return }
+
+        let currentSpaceID = CGSManagedDisplayGetCurrentSpace(CGS_CONNECTION, uuid as CFString)
+        let filtered = allSpaceIdsAndIndexes()
+        guard let (targetSpaceID, _) = filtered.first(where: { $0.1 == desktopIndex }) else { return }
+
+        // x+70: just past traffic-light buttons; y+5: top of title bar zone (KM macro approach)
+        let dragPoint = CGPoint(x: pos.x + 70, y: pos.y + 5)
 
         moveInProgress = true
         DispatchQueue.global(qos: .userInitiated).async {
             defer { DispatchQueue.main.async { Self.moveInProgress = false } }
             let src = CGEventSource(stateID: .hidSystemState)
 
-            // 1. Mouse down on title bar
             CGEvent(mouseEventSource: src, mouseType: .leftMouseDown,
                     mouseCursorPosition: dragPoint, mouseButton: .left)?.post(tap: .cghidEventTap)
             Thread.sleep(forTimeInterval: 0.05)
-
-            // 2. Tiny drag to enter dragging state (macOS requires actual movement)
             CGEvent(mouseEventSource: src, mouseType: .leftMouseDragged,
-                    mouseCursorPosition: CGPoint(x: dragPoint.x + 1, y: dragPoint.y),
+                    mouseCursorPosition: CGPoint(x: dragPoint.x + 2, y: dragPoint.y),
                     mouseButton: .left)?.post(tap: .cghidEventTap)
             Thread.sleep(forTimeInterval: 0.1)
-
-            // 3. Switch desktop (Ctrl+N direct jump, or Ctrl+Arrow fallback) — window follows drag
             switchToDesktop(desktopIndex, from: currentSpaceIndex())
             Thread.sleep(forTimeInterval: 0.3)
-
-            // 4. Mouse up — drop window on target desktop
             CGEvent(mouseEventSource: src, mouseType: .leftMouseUp,
                     mouseCursorPosition: dragPoint, mouseButton: .left)?.post(tap: .cghidEventTap)
-            Thread.sleep(forTimeInterval: 0.2)
+            Thread.sleep(forTimeInterval: 0.15)
 
-            // 5. Restore frame (drag may have shifted position slightly)
             DispatchQueue.main.sync {
                 setWindowPosition(window, point: savedFrame.origin)
                 setWindowSize(window, size: savedFrame.size)
