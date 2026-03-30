@@ -12,27 +12,27 @@
 			containerPortal = B53B2EEA2F458F6D00A5CFDA /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = B53B2EF12F458F6D00A5CFDA;
-			remoteInfo = windows;
+			remoteInfo = Wing;
 		};
 		B53B2F0A2F458F7000A5CFDA /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = B53B2EEA2F458F6D00A5CFDA /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = B53B2EF12F458F6D00A5CFDA;
-			remoteInfo = windows;
+			remoteInfo = Wing;
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		B53B2EF22F458F6D00A5CFDA /* windows.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = windows.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B53B2EF22F458F6D00A5CFDA /* windows.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = windows.app; path = Wing.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B53B2EFF2F458F6F00A5CFDA /* windowsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = windowsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B53B2F092F458F7000A5CFDA /* windowsUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = windowsUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		B53B2EF42F458F6D00A5CFDA /* windows */ = {
+		B53B2EF42F458F6D00A5CFDA /* wing */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = windows;
+			path = wing;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -65,7 +65,7 @@
 		B53B2EE92F458F6D00A5CFDA = {
 			isa = PBXGroup;
 			children = (
-				B53B2EF42F458F6D00A5CFDA /* windows */,
+				B53B2EF42F458F6D00A5CFDA /* wing */,
 				B53B2EF32F458F6D00A5CFDA /* Products */,
 			);
 			sourceTree = "<group>";
@@ -96,12 +96,12 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				B53B2EF42F458F6D00A5CFDA /* windows */,
+				B53B2EF42F458F6D00A5CFDA /* wing */,
 			);
-			name = windows;
+			name = Wing;
 			packageProductDependencies = (
 			);
-			productName = windows;
+			productName = Wing;
 			productReference = B53B2EF22F458F6D00A5CFDA /* windows.app */;
 			productType = "com.apple.product-type.application";
 		};
@@ -374,7 +374,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = windows/windows.entitlements;
+				CODE_SIGN_ENTITLEMENTS = wing/wing.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
@@ -416,7 +416,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = windows/windows.entitlements;
+				CODE_SIGN_ENTITLEMENTS = wing/wing.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
@@ -469,7 +469,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/windows.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/windows";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Wing.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Wing";
 			};
 			name = Debug;
 		};
@@ -489,7 +489,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/windows.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/windows";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Wing.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Wing";
 			};
 			name = Release;
 		};
@@ -507,7 +507,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TEST_TARGET_NAME = windows;
+				TEST_TARGET_NAME = Wing;
 			};
 			name = Debug;
 		};
@@ -525,7 +525,7 @@
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TEST_TARGET_NAME = windows;
+				TEST_TARGET_NAME = Wing;
 			};
 			name = Release;
 		};
