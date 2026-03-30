@@ -101,18 +101,14 @@ Move to Desktop can be enabled or disabled in Settings.
 
 ## Installation
 
-Since the app is not notarized, macOS will block it on first launch. To open it:
-
 1. Mount the DMG and drag **Wing.app** to Applications
-2. Try to open it — macOS will show *"can't be opened because it is from an unidentified developer"*
-3. Go to **System Settings → Privacy & Security**
-4. Scroll down and click **"Open Anyway"**
-5. Click **Open** in the confirmation dialog
-
-Alternatively, run this command in Terminal after copying the app to Applications:
+2. Run in Terminal:
 ```bash
 xattr -cr /Applications/Wing.app
 ```
+3. Open Wing.app normally
+
+> macOS blocks unnotarized apps with *"damaged and can't be opened"* — the command above removes the quarantine flag.
 
 ## Requirements
 
