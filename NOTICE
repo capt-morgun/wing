@@ -1,0 +1,33 @@
+Window Switcher
+Copyright (C) 2025 Capt. Morgun
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+-------------------------------------------------------------------------------
+
+This software includes code adapted from alt-tab-macos
+by lwouis and contributors — https://github.com/lwouis/alt-tab-macos
+Licensed under the GNU General Public License v3.0.
+
+The following parts were adapted from alt-tab-macos:
+
+- Private API declarations (SLSMainConnectionID, CGSCopyManagedDisplaySpaces,
+  CGSCopySpacesForWindows, CGSCopyWindowsWithOptionsAndTags,
+  _SLPSSetFrontProcessWithOptions, SLPSPostEventRecordTo,
+  _AXUIElementCreateWithRemoteToken, _AXUIElementGetWindow, GetProcessForPID)
+  — src/api-wrappers/PrivateApis.swift
+
+- allAXWindows(): combining kAXWindowsAttribute with brute-force
+  _AXUIElementCreateWithRemoteToken token iteration to discover windows
+  on other Spaces — src/api-wrappers/AXUIElement.swift
+
+- makeKeyWindow(): sending raw WindowServer event bytes via SLPSPostEventRecordTo
+  to focus a specific window by CGWindowID
+  — originally from https://github.com/Hammerspoon/hammerspoon/issues/370,
+  also used in alt-tab-macos src/logic/Window.swift
+
+- Window space mapping via CGSCopyWindowsWithOptionsAndTags per Space
+  — src/logic/Spaces.swift
