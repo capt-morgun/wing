@@ -1,4 +1,4 @@
-# Window Switcher
+# Wing
 
 A lightweight window manager for macOS. Snap windows to precise positions, switch between open windows across all Spaces with a hold-and-release hotkey, and move any window to another Desktop — all with keyboard shortcuts.
 
@@ -103,7 +103,7 @@ Move to Desktop can be enabled or disabled in Settings.
 
 Since the app is not notarized, macOS will block it on first launch. To open it:
 
-1. Mount the DMG and drag **windows.app** to Applications
+1. Mount the DMG and drag **Wing.app** to Applications
 2. Try to open it — macOS will show *"can't be opened because it is from an unidentified developer"*
 3. Go to **System Settings → Privacy & Security**
 4. Scroll down and click **"Open Anyway"**
@@ -111,7 +111,7 @@ Since the app is not notarized, macOS will block it on first launch. To open it:
 
 Alternatively, run this command in Terminal after copying the app to Applications:
 ```bash
-xattr -cr /Applications/windows.app
+xattr -cr /Applications/Wing.app
 ```
 
 ## Requirements

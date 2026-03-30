@@ -2,7 +2,7 @@ import ServiceManagement
 import SwiftUI
 
 @main
-struct windowsApp: App {
+struct WingApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
@@ -116,7 +116,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 backing: .buffered,
                 defer: false
             )
-            window.title = "Windows Settings"
+            window.title = "Wing Settings"
             window.contentView = NSHostingView(rootView: ContentView())
             window.center()
             window.isReleasedWhenClosed = false
