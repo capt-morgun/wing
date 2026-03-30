@@ -4,3 +4,4 @@ DerivedData/
 .DS_Store
 *.profraw
 *.kmmacros
+wing.xcodeproj/project.xcworkspace
