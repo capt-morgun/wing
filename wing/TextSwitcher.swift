@@ -181,9 +181,69 @@ final class TextSwitcher {
             return
         }
 
-        // Priority: if user has text selected, transform that instead of the buffer
-        if handleSelectedTextTransform() { return }
+        // Priority 1: AX selection (native apps)
+        if handleSelectedTextTransform() {
+            clearBuffer()   // stale keycodes no longer reflect on-screen text
+            return
+        }
 
+        // Priority 2: AX safety check — if selection is visible via AX but transform failed, abort
+        if let element = focusedAXElement(), activeSelectionExists(in: element) {
+            NSLog("[TextSwitcher] Trigger aborted: active selection detected but AX transform failed")
+            return
+        }
+
+        // Priority 3: Cmd+C clipboard probe for non-AX apps (Electron, VS Code, etc.)
+        // Cmd+C = Copy shortcut — safe everywhere (Terminal uses Ctrl+C for SIGINT, not Cmd+C).
+        // If text is selected, clipboard will change; we transform and paste to replace selection.
+        triggerViaClipboardProbeOrBuffer()
+    }
+
+    private func triggerViaClipboardProbeOrBuffer() {
+        let pb = NSPasteboard.general
+        let savedItems: [(String, Data)] = pb.pasteboardItems?.compactMap { item -> (String, Data)? in
+            guard let type = item.types.first, let data = item.data(forType: type) else { return nil }
+            return (type.rawValue, data)
+        } ?? []
+        let beforeCount = pb.changeCount
+
+        pb.clearContents()
+        postSynth(src: nil, keycode: 8, down: true,  flags: .maskCommand)  // Cmd+C
+        postSynth(src: nil, keycode: 8, down: false, flags: .maskCommand)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [weak self] in
+            guard let self else { return }
+
+            let copied = pb.string(forType: .string) ?? ""
+            let clipboardChanged = pb.changeCount != beforeCount
+
+            // Restore original clipboard before doing anything else
+            pb.clearContents()
+            if !savedItems.isEmpty {
+                let item = NSPasteboardItem()
+                for (typeStr, data) in savedItems {
+                    item.setData(data, forType: NSPasteboard.PasteboardType(typeStr))
+                }
+                pb.writeObjects([item])
+            }
+
+            // Valid selection: non-empty, single-line, short enough to be a word/phrase
+            if clipboardChanged && !copied.isEmpty && !copied.contains("\n") && copied.count <= 200,
+               let (transformed, targetIdx) = self.transformChars(copied) {
+                NSLog("[TextSwitcher] Clipboard probe selection '%@' → layout[%d]: '%@'",
+                      copied, targetIdx, transformed)
+                self.clearBuffer()
+                self.pasteFromClipboard(transformed)
+                self.scheduleSwitchToLayout(targetIdx)
+                return
+            }
+
+            // No selection found — run normal buffer transform
+            self.runBufferTransform()
+        }
+    }
+
+    private func runBufferTransform() {
         if let cycle = cycleBuffer {
             targetLayoutIndex = (targetLayoutIndex + 1) % layouts.count
             let target = layouts[targetLayoutIndex]
@@ -216,13 +276,26 @@ final class TextSwitcher {
 
     /// Returns true if there was a non-empty selection that was handled.
     private func handleSelectedTextTransform() -> Bool {
-        guard let element = focusedAXElement(),
-              let sel = selectionRange(in: element),
-              sel.length > 0 else { return false }
+        guard let element = focusedAXElement() else {
+            NSLog("[TextSwitcher] handleSelectedText: no focused AX element")
+            return false
+        }
 
+        // Check range attribute (supported in most native apps)
+        if let sel = selectionRange(in: element) {
+            NSLog("[TextSwitcher] handleSelectedText: sel={loc=%d, len=%d}", sel.location, sel.length)
+            guard sel.length > 0 else { return false }
+        } else {
+            NSLog("[TextSwitcher] handleSelectedText: range attribute unavailable, trying text attribute")
+        }
+
+        // Get the actual selected text (also works in apps that don't expose range)
         var ref: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, kAXSelectedTextAttribute as CFString, &ref) == .success,
-              let selectedText = ref as? String, !selectedText.isEmpty else { return false }
+              let selectedText = ref as? String, !selectedText.isEmpty else {
+            NSLog("[TextSwitcher] handleSelectedText: no selected text found")
+            return false
+        }
 
         NSLog("[TextSwitcher] Selected text detected: '%@' (%d chars)", selectedText, selectedText.count)
 
@@ -397,6 +470,19 @@ final class TextSwitcher {
     }
 
     // MARK: - AX helpers
+
+    /// Returns true if there is a non-empty text selection in the element.
+    /// Checks both the range attribute and the selected-text attribute (fallback for apps
+    /// that expose text but not range, e.g. some Electron/non-native apps).
+    private func activeSelectionExists(in element: AXUIElement) -> Bool {
+        if let sel = selectionRange(in: element) {
+            return sel.length > 0
+        }
+        var ref: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXSelectedTextAttribute as CFString, &ref) == .success,
+              let text = ref as? String else { return false }
+        return !text.isEmpty
+    }
 
     private func focusedAXElement() -> AXUIElement? {
         guard AXIsProcessTrusted() else { return nil }
