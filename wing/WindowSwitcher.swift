@@ -81,9 +81,24 @@ final class WindowSwitcher {
             }
             let windowList = self.fetchWindows(axCache: freshCache)
             DispatchQueue.main.async {
+                let wasVisible = self.isVisible
                 self.axCache = freshCache
-                self.windows = windowList
-                self.selectedIndex = windowList.count > 1 ? 1 : 0
+
+                if wasVisible {
+                    // Background refresh while user is navigating — try to preserve selection
+                    let prevID = self.windows.indices.contains(self.selectedIndex)
+                        ? self.windows[self.selectedIndex].windowID : 0
+                    self.windows = windowList
+                    if let newIdx = windowList.firstIndex(where: { $0.windowID == prevID }) {
+                        self.selectedIndex = newIdx
+                    } else if self.selectedIndex >= windowList.count {
+                        self.selectedIndex = max(0, windowList.count - 1)
+                    }
+                } else {
+                    self.windows = windowList
+                    self.selectedIndex = windowList.count > 1 ? 1 : 0
+                }
+
                 self.isVisible = true
                 onReady?()
             }
@@ -200,6 +215,11 @@ final class WindowSwitcher {
                        subrole != kAXStandardWindowSubrole, subrole != kAXDialogSubrole {
                         continue
                     }
+                } else {
+                    // No AX entry — likely a background subwindow missed by brute-force.
+                    // Only keep it if it has a real title from CGWindowList (not empty),
+                    // otherwise it's almost certainly an auxiliary/invisible window.
+                    if w.title.isEmpty { continue }
                 }
 
                 let isMin = axMinimized[w.wid] ?? false
@@ -269,13 +289,18 @@ final class WindowSwitcher {
         GetProcessForPID(win.pid, &psn)
         _SLPSSetFrontProcessWithOptions(&psn, win.windowID, 0x200)
         makeKeyWindow(&psn, win.windowID)
+        var raised = false
         if let axWin = win.axWindow {
             // kAXRaiseAction + _SLPSSetFrontProcessWithOptions together trigger the
             // Space switch animation when the window is on another Space (alt-tab-macos approach).
-            AXUIElementPerformAction(axWin, kAXRaiseAction as CFString)
-        } else {
-            // axWin not in AX cache (window on another Space not yet discovered by brute-force).
-            // Fall back to standard activation — macOS handles the Space switch natively.
+            let err = AXUIElementPerformAction(axWin, kAXRaiseAction as CFString)
+            raised = (err == .success)
+            if !raised {
+                NSLog("[WindowSwitcher] AXRaise failed (%d) for wid=%u, falling back", err.rawValue, win.windowID)
+            }
+        }
+        if !raised {
+            // axWin not in AX cache or stale — fall back to standard activation.
             app.activate(options: [.activateIgnoringOtherApps])
         }
     }
