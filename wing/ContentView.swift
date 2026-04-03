@@ -78,6 +78,18 @@ struct ContentView: View {
                 ))
             }
 
+            Section(t("Text Switcher")) {
+                Toggle(t("Enable double Shift to switch layout"), isOn: $settings.textSwitcherEnabled)
+                if settings.textSwitcherEnabled {
+                    let names = TextSwitcher.shared.layouts.map(\.name).joined(separator: " → ")
+                    if !names.isEmpty {
+                        Text(names)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
             Section(t("Window Switcher")) {
                 Toggle(tf("Enable %@ + Tab window switcher", settings.modifierKey.symbol), isOn: $settings.windowSwitcherEnabled)
             }

@@ -81,6 +81,10 @@ final class AppSettings {
         didSet { UserDefaults.standard.set(moveToDesktopEnabled, forKey: "moveToDesktopEnabled") }
     }
 
+    var textSwitcherEnabled: Bool {
+        didSet { UserDefaults.standard.set(textSwitcherEnabled, forKey: "textSwitcherEnabled") }
+    }
+
     var language: Language {
         didSet {
             UserDefaults.standard.set(language.rawValue, forKey: "language")
@@ -124,6 +128,8 @@ final class AppSettings {
         centerWidthPercent = savedCenter > 0 ? savedCenter : 60
 
         moveToDesktopEnabled = defaults.object(forKey: "moveToDesktopEnabled") as? Bool ?? true
+
+        textSwitcherEnabled = defaults.object(forKey: "textSwitcherEnabled") as? Bool ?? true
 
         if let raw = defaults.string(forKey: "language"),
            let lang = Language(rawValue: raw) {

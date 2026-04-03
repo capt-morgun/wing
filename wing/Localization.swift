@@ -68,6 +68,8 @@ private let translations: [Language: [String: String]] = [
         "Close active window": "Закрыть активное окно",
         "Center window": "Центрировать окно",
         "Enable %@ + 1–9 to move window": "Включить %@ + 1–9 для перемещения",
+        "Text Switcher": "Переключатель раскладки",
+        "Enable double Shift to switch layout": "Двойной Shift для смены раскладки",
         "Switch windows (experimental)": "Переключение окон (эксп.)",
         "Center (%d%%)": "По центру (%d%%)",
         "Move window to Desktop N": "Переместить на рабочий стол N",
