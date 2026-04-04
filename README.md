@@ -105,8 +105,8 @@ Move to Desktop can be enabled or disabled in Settings.
 Double-press Shift to instantly convert recently typed text to the correct keyboard layout. Useful when you start typing in English but your layout was set to Russian (or any other language) — or vice versa.
 
 - Automatically detects all keyboard layouts installed on your Mac
-- Converts text using the actual key positions (not a hardcoded character map), so it works with any pair of layouts
-- Press double-Shift again to cycle through additional layouts if you have more than two
+- Converts text using the actual key positions (not a hardcoded character map), so it works with any combination of layouts — not just English and Russian
+- If you have more than two layouts, each subsequent double-Shift cycles to the next one
 - Select a word and press double-Shift to convert only that word
 - After converting, the active keyboard layout switches to match the target language so you can keep typing
 - Works in native macOS apps, browsers, Electron apps, and terminals
