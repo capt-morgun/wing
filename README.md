@@ -126,7 +126,7 @@ xattr -cr /Applications/Wing.app
 
 ## Requirements
 
-- macOS 13+
+- macOS 26+
 - Accessibility permission
 - Automation permission (for Move to Desktop)
 
