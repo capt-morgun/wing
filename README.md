@@ -130,6 +130,10 @@ xattr -cr /Applications/Wing.app
 - Accessibility permission
 - Automation permission (for Move to Desktop)
 
+## Support the project
+
+Wing is free and open-source. If you find it useful, consider [sponsoring the project](https://github.com/sponsors/capt-morgun) — it helps us keep building convenient software for everyday use.
+
 ---
 
 [Русская версия](README.ru.md)
