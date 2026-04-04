@@ -124,6 +124,10 @@ Double-press Shift to instantly convert recently typed text to the correct keybo
 
 Text Switcher can be enabled or disabled in Settings.
 
+## Languages
+
+English, Русский, Deutsch, Français, Español, Italiano, Português, Polski, 中文, 日本語, हिन्दी
+
 ## Requirements
 
 - macOS 26+
