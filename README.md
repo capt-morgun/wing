@@ -19,6 +19,17 @@ A lightweight window manager for macOS. Snap windows to precise positions, switc
 - Menu bar app — lives quietly in the background
 - Launch at Login option in Settings
 
+## Installation
+
+1. Mount the DMG and drag **Wing.app** to Applications
+2. Run in Terminal:
+```bash
+xattr -cr /Applications/Wing.app
+```
+3. Open Wing.app normally
+
+> macOS blocks unnotarized apps with *"damaged and can't be opened"* — the command above removes the quarantine flag.
+
 ## Window Switcher
 
 <img src="assets/screenshot2.png" width="260"/>
@@ -112,17 +123,6 @@ Double-press Shift to instantly convert recently typed text to the correct keybo
 - Works in native macOS apps, browsers, Electron apps, and terminals
 
 Text Switcher can be enabled or disabled in Settings.
-
-## Installation
-
-1. Mount the DMG and drag **Wing.app** to Applications
-2. Run in Terminal:
-```bash
-xattr -cr /Applications/Wing.app
-```
-3. Open Wing.app normally
-
-> macOS blocks unnotarized apps with *"damaged and can't be opened"* — the command above removes the quarantine flag.
 
 ## Requirements
 
