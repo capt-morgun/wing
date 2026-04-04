@@ -1,6 +1,6 @@
 # Wing
 
-A lightweight window manager for macOS. Snap windows to precise positions, switch between open windows across all Spaces with a hold-and-release hotkey, and move any window to another Desktop — all with keyboard shortcuts.
+A lightweight window manager for macOS. Snap windows to precise positions, switch between open windows across all Spaces, fix text typed in the wrong keyboard layout, and move any window to another Desktop — all with keyboard shortcuts.
 
 <img src="assets/screenshot.png" width="320"/>
 
@@ -14,6 +14,7 @@ A lightweight window manager for macOS. Snap windows to precise positions, switc
 - Configurable split ratios (left/right width, top/bottom height)
 - **Window Control** — maximize/restore, minimize, close windows via hotkeys
 - **Move to Desktop** — send the active window to any Desktop with Mod+Number
+- **Text Switcher** — double-press Shift to convert recently typed text to the correct keyboard layout
 - All hotkeys fully configurable in Settings
 - Menu bar app — lives quietly in the background
 - Launch at Login option in Settings
@@ -98,6 +99,19 @@ If the app is set to **All Desktops**, macOS will show it on every Space and the
 Requires Automation permission (prompted on first use) so the app can send keystrokes to System Events.
 
 Move to Desktop can be enabled or disabled in Settings.
+
+## Text Switcher
+
+Double-press Shift to instantly convert recently typed text to the correct keyboard layout. Useful when you start typing in English but your layout was set to Russian (or any other language) — or vice versa.
+
+- Automatically detects all keyboard layouts installed on your Mac
+- Converts text using the actual key positions (not a hardcoded character map), so it works with any pair of layouts
+- Press double-Shift again to cycle through additional layouts if you have more than two
+- Select a word and press double-Shift to convert only that word
+- After converting, the active keyboard layout switches to match the target language so you can keep typing
+- Works in native macOS apps, browsers, Electron apps, and terminals
+
+Text Switcher can be enabled or disabled in Settings.
 
 ## Installation
 
