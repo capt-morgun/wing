@@ -1,0 +1,20 @@
+# Xcode
+xcuserdata/
+*.xcuserstate
+*.xcworkspace
+DerivedData/
+*.moved-aside
+*.hmap
+*.ipa
+
+# Build
+build/
+*.o
+*.d
+
+# macOS
+.DS_Store
+*.profraw
+
+# Other
+*.kmmacros
