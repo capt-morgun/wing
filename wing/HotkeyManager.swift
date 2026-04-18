@@ -43,6 +43,9 @@ final class HotkeyManager {
             (1 << CGEventType.keyDown.rawValue)
             | (1 << CGEventType.keyUp.rawValue)
             | (1 << CGEventType.flagsChanged.rawValue)
+            | (1 << CGEventType.leftMouseDown.rawValue)
+            | (1 << CGEventType.rightMouseDown.rawValue)
+            | (1 << CGEventType.otherMouseDown.rawValue)
 
         let selfPtr = Unmanaged.passUnretained(self).toOpaque()
 
@@ -112,6 +115,17 @@ final class HotkeyManager {
             return Unmanaged.passUnretained(event)
         }
 
+        // Any mouse click invalidates typing buffer and cycle state: the user may
+        // have moved the cursor or selected text with the mouse, so stale keycodes
+        // no longer describe what's on screen. Also cancels a pending double-Shift.
+        if type == .leftMouseDown || type == .rightMouseDown || type == .otherMouseDown {
+            if AppSettings.shared.textSwitcherEnabled {
+                TextSwitcher.shared.clearBuffer()
+            }
+            lastShiftPressTime = nil
+            return Unmanaged.passUnretained(event)
+        }
+
         // For flagsChanged, track modifier and shift state
         if type == .flagsChanged {
             let requiredFlag = AppSettings.shared.modifierKey.cgEventFlag
@@ -151,13 +165,24 @@ final class HotkeyManager {
 
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
 
+        // Any real keyDown between two Shift presses invalidates the double-Shift intent
+        if type == .keyDown {
+            lastShiftPressTime = nil
+        }
+
         // Maintain keystroke buffer for TextSwitcher (runs on all keyDown before modifier check)
         if type == .keyDown && AppSettings.shared.textSwitcherEnabled {
             let hasCmd  = event.flags.contains(.maskCommand)
             let hasCtrl = event.flags.contains(.maskControl)
             let hasMod  = event.flags.contains(AppSettings.shared.modifierKey.cgEventFlag)
             if hasCmd || hasCtrl || hasMod {
-                TextSwitcher.shared.clearBuffer()
+                // Cmd+V (keycode 9) = paste — snapshot clipboard so double-Shift can
+                // convert pasted-but-wrong-layout text. Everything else clears the buffer.
+                if hasCmd && keyCode == 9 {
+                    TextSwitcher.shared.recordPaste()
+                } else {
+                    TextSwitcher.shared.clearBuffer()
+                }
             } else {
                 switch keyCode {
                 case 51:                      // Backspace / Delete

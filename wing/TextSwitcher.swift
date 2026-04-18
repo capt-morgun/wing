@@ -7,6 +7,10 @@ final class TextSwitcher {
     /// User-data value stamped on synthetic events so HotkeyManager can ignore them
     static let syntheticMarker: Int64 = 0x57494E47  // "WING"
 
+    /// nspasteboard.org convention: mark items so clipboard managers (Paste, Raycast,
+    /// Maccy, etc.) skip them and don't pollute the user's clipboard history.
+    static let concealedType = NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType")
+
     struct LayoutInfo {
         let source: TISInputSource
         let name: String
@@ -34,6 +38,11 @@ final class TextSwitcher {
     private var targetLayoutIndex = 0
     /// Layout index that was active when user started typing (to skip on first transform)
     private var typingLayoutIndex: Int?
+    /// Last text we wrote to the screen — reference for cycle deduplication
+    private var lastTransformedText: String = ""
+    /// Text that was in the clipboard when the user pressed Cmd+V, so double-Shift
+    /// can convert pasted-but-wrong-layout text without needing keycode history.
+    private var pastedText: String?
 
     private let maxBuffer = 200
 
@@ -136,6 +145,7 @@ final class TextSwitcher {
     // MARK: - Buffer management (called from HotkeyManager on every keyDown)
 
     func appendToBuffer(keycode: UInt16, isShifted: Bool) {
+        pastedText = nil  // user is typing fresh — pasted context is stale
         if pendingBuffer.isEmpty {
             typingLayoutIndex = currentLayoutIndex()
             let idx = typingLayoutIndex!
@@ -147,6 +157,14 @@ final class TextSwitcher {
         cycleBuffer = nil
         targetLayoutIndex = 0
         NSLog("[TextSwitcher] Buffer append keycode=%d shifted=%d bufLen=%d", keycode, isShifted ? 1 : 0, pendingBuffer.count)
+    }
+
+    /// Called when Cmd+V is detected. Snapshots the clipboard so that a subsequent
+    /// double-Shift can convert the pasted text to the correct layout.
+    func recordPaste() {
+        clearBuffer()
+        pastedText = NSPasteboard.general.string(forType: .string)
+        NSLog("[TextSwitcher] Paste recorded: '%@'", pastedText ?? "(nil)")
     }
 
     func deleteFromBuffer() {
@@ -171,6 +189,8 @@ final class TextSwitcher {
         cycleScreenLength = 0
         targetLayoutIndex = 0
         typingLayoutIndex = nil
+        lastTransformedText = ""
+        pastedText = nil
     }
 
     // MARK: - Trigger (called on double-Shift)
@@ -193,21 +213,43 @@ final class TextSwitcher {
             return
         }
 
-        // Priority 3: Cmd+C clipboard probe for non-AX apps (Electron, VS Code, etc.)
-        // Cmd+C = Copy shortcut — safe everywhere (Terminal uses Ctrl+C for SIGINT, not Cmd+C).
-        // If text is selected, clipboard will change; we transform and paste to replace selection.
+        // Priority 3: AX-capable text element without selection — trust the typing buffer.
+        // Skipping the clipboard probe here avoids "copy current line" side effects in
+        // Xcode, editors, and browsers where Cmd+C without a selection grabs the whole
+        // line or page URL and we'd paste that back in.
+        if focusedIsAXTextElement() {
+            runBufferTransform()
+            return
+        }
+
+        // Priority 4: Cmd+C clipboard probe for non-AX apps (Electron, Terminal, etc.)
         triggerViaClipboardProbeOrBuffer()
     }
 
+    /// True if the focused AX element supports the selected-text-range attribute —
+    /// i.e. it's a text field/area where we can reliably detect selection via AX.
+    private func focusedIsAXTextElement() -> Bool {
+        guard let element = focusedAXElement() else { return false }
+        var ref: CFTypeRef?
+        return AXUIElementCopyAttributeValue(
+            element, kAXSelectedTextRangeAttribute as CFString, &ref
+        ) == .success
+    }
+
     private func triggerViaClipboardProbeOrBuffer() {
+        // If the user has typed recently, trust the buffer — don't probe the clipboard.
+        // Cmd+C without a real selection can silently grab the current line / URL /
+        // whatever the app decides, which we'd then re-paste as "selected text".
+        if !pendingBuffer.isEmpty || cycleBuffer != nil {
+            runBufferTransform()
+            return
+        }
+
         let pb = NSPasteboard.general
-        let savedItems: [(String, Data)] = pb.pasteboardItems?.compactMap { item -> (String, Data)? in
-            guard let type = item.types.first, let data = item.data(forType: type) else { return nil }
-            return (type.rawValue, data)
-        } ?? []
-        let beforeCount = pb.changeCount
+        let savedItems = snapshotPasteboard(pb)
 
         pb.clearContents()
+        let baselineCount = pb.changeCount
         postSynth(src: nil, keycode: 8, down: true,  flags: .maskCommand)  // Cmd+C
         postSynth(src: nil, keycode: 8, down: false, flags: .maskCommand)
 
@@ -215,17 +257,11 @@ final class TextSwitcher {
             guard let self else { return }
 
             let copied = pb.string(forType: .string) ?? ""
-            let clipboardChanged = pb.changeCount != beforeCount
+            // changeCount only advances if Cmd+C actually wrote something after our clear.
+            let clipboardChanged = pb.changeCount > baselineCount
 
             // Restore original clipboard before doing anything else
-            pb.clearContents()
-            if !savedItems.isEmpty {
-                let item = NSPasteboardItem()
-                for (typeStr, data) in savedItems {
-                    item.setData(data, forType: NSPasteboard.PasteboardType(typeStr))
-                }
-                pb.writeObjects([item])
-            }
+            self.restorePasteboard(pb, snapshot: savedItems)
 
             // Valid selection: non-empty, single-line, short enough to be a word/phrase
             if clipboardChanged && !copied.isEmpty && !copied.contains("\n") && copied.count <= 200,
@@ -245,28 +281,55 @@ final class TextSwitcher {
 
     private func runBufferTransform() {
         if let cycle = cycleBuffer {
-            targetLayoutIndex = (targetLayoutIndex + 1) % layouts.count
+            // What's on screen right now = last transformed text. Pick the next layout
+            // whose output differs meaningfully (avoids "Russian" vs "Russian — PC"
+            // variants giving an almost identical cycle result).
+            let (nextIdx, transformed) = findMeaningfullyDifferentLayout(
+                buffer: cycle, from: targetLayoutIndex, reference: lastTransformedText
+            )
+            targetLayoutIndex = nextIdx
             let target = layouts[targetLayoutIndex]
-            let transformed = transformBuffer(cycle, to: target)
             NSLog("[TextSwitcher] Re-cycle → layout[%d]='%@': delete %d, type '%@'",
                   targetLayoutIndex, target.name, cycleScreenLength, transformed)
             replaceText(deleteCount: cycleScreenLength, newText: transformed)
             cycleScreenLength = transformed.count
+            lastTransformedText = transformed
             scheduleSwitchToLayout(targetLayoutIndex)
+        } else if let pasted = pastedText {
+            // User pasted text and then double-Shifted without typing anything.
+            // Treat the pasted string as the source and convert it via character→layout map.
+            guard let (transformed, targetIdx) = transformChars(pasted) else {
+                NSLog("[TextSwitcher] Paste transform ignored — could not map characters")
+                return
+            }
+            targetLayoutIndex = targetIdx
+            NSLog("[TextSwitcher] Paste transform '%@' → layout[%d]: '%@'",
+                  pasted, targetIdx, transformed)
+            replaceText(deleteCount: pasted.count, newText: transformed)
+            lastTransformedText = transformed
+            pastedText = nil
+            scheduleSwitchToLayout(targetIdx)
         } else {
             guard !pendingBuffer.isEmpty else {
                 NSLog("[TextSwitcher] Trigger ignored — buffer is empty")
                 return
             }
+
             let skipIndex = typingLayoutIndex ?? currentLayoutIndex()
-            targetLayoutIndex = (skipIndex + 1) % layouts.count
+            // On-screen text right now = what keycodes produce in the layout the user
+            // typed in. Use that as reference so we skip near-duplicate target layouts.
+            let typedText = transformBuffer(pendingBuffer, to: layouts[skipIndex])
+            let (nextIdx, transformed) = findMeaningfullyDifferentLayout(
+                buffer: pendingBuffer, from: skipIndex, reference: typedText
+            )
+            targetLayoutIndex = nextIdx
             let target = layouts[targetLayoutIndex]
-            let transformed = transformBuffer(pendingBuffer, to: target)
             NSLog("[TextSwitcher] Transform %d chars → layout[%d]='%@': '%@'",
                   pendingBuffer.count, targetLayoutIndex, target.name, transformed)
             replaceText(deleteCount: pendingBuffer.count, newText: transformed)
             cycleBuffer = pendingBuffer
             cycleScreenLength = transformed.count
+            lastTransformedText = transformed
             pendingBuffer.removeAll()
             scheduleSwitchToLayout(targetLayoutIndex)
         }
@@ -361,6 +424,33 @@ final class TextSwitcher {
         })
     }
 
+    /// Walks forward from `startIndex` and returns the first layout whose transform
+    /// of `buffer` differs meaningfully from `reference` (< 70% character match).
+    /// Falls back to the immediate next layout if every candidate is too similar.
+    private func findMeaningfullyDifferentLayout(
+        buffer: [BufferEntry], from startIndex: Int, reference: String
+    ) -> (index: Int, transformed: String) {
+        let fallbackIndex = (startIndex + 1) % layouts.count
+        var idx = startIndex
+        for _ in 0..<layouts.count {
+            idx = (idx + 1) % layouts.count
+            if idx == startIndex { break }
+            let candidate = transformBuffer(buffer, to: layouts[idx])
+            if similarityRatio(candidate, reference) < 0.7 {
+                return (idx, candidate)
+            }
+        }
+        return (fallbackIndex, transformBuffer(buffer, to: layouts[fallbackIndex]))
+    }
+
+    /// Fraction of positions where two equal-length strings share the same character.
+    /// Returns 0 for mismatched lengths (shouldn't happen — transformBuffer preserves length).
+    private func similarityRatio(_ a: String, _ b: String) -> Double {
+        guard !a.isEmpty, a.count == b.count else { return 0.0 }
+        let matches = zip(a, b).reduce(0) { $0 + ($1.0 == $1.1 ? 1 : 0) }
+        return Double(matches) / Double(a.count)
+    }
+
     // MARK: - Text replacement (3-level fallback)
 
     private func replaceText(deleteCount: Int, newText: String) {
@@ -436,14 +526,9 @@ final class TextSwitcher {
     /// Level 3: Backspace × N to delete, then paste via clipboard.
     /// Works in terminals (readline) and other apps where AX selection is not supported.
     private func replaceViaShiftSelectPaste(deleteCount: Int, newText: String) {
-        // Set clipboard before sending any events
         let pb = NSPasteboard.general
-        let saved = pb.pasteboardItems?.compactMap { item -> (String, Data)? in
-            guard let type = item.types.first, let data = item.data(forType: type) else { return nil }
-            return (type.rawValue, data)
-        }
-        pb.clearContents()
-        pb.setString(newText, forType: .string)
+        let saved = snapshotPasteboard(pb)
+        writeTransientString(newText, to: pb)
 
         let src = CGEventSource(stateID: .combinedSessionState)
         for _ in 0..<deleteCount {
@@ -451,20 +536,15 @@ final class TextSwitcher {
             postSynth(src: src, keycode: 51, down: false)
         }
 
-        // Small delay so all backspace events are processed before the paste
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+        // Give the app time to process every backspace before we paste.
+        // Slow Electron/web apps can queue backspaces — adaptive delay scales with N.
+        let beforePaste = max(0.05, Double(deleteCount) * 0.004)
+        DispatchQueue.main.asyncAfter(deadline: .now() + beforePaste) { [weak self] in
             self?.postSynth(src: nil, keycode: 9, down: true,  flags: .maskCommand)  // Cmd+V
             self?.postSynth(src: nil, keycode: 9, down: false, flags: .maskCommand)
 
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                pb.clearContents()
-                if let saved, !saved.isEmpty {
-                    let item = NSPasteboardItem()
-                    for (typeStr, data) in saved {
-                        item.setData(data, forType: NSPasteboard.PasteboardType(typeStr))
-                    }
-                    pb.writeObjects([item])
-                }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+                self?.restorePasteboard(pb, snapshot: saved)
             }
         }
     }
@@ -507,26 +587,52 @@ final class TextSwitcher {
 
     private func pasteFromClipboard(_ text: String) {
         let pb = NSPasteboard.general
-        let saved = pb.pasteboardItems?.compactMap { item -> (String, Data)? in
-            guard let type = item.types.first, let data = item.data(forType: type) else { return nil }
-            return (type.rawValue, data)
-        }
-        pb.clearContents()
-        pb.setString(text, forType: .string)
+        let saved = snapshotPasteboard(pb)
+        writeTransientString(text, to: pb)
 
         postSynth(src: nil, keycode: 9, down: true,  flags: .maskCommand)  // Cmd+V
         postSynth(src: nil, keycode: 9, down: false, flags: .maskCommand)
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            pb.clearContents()
-            if let saved, !saved.isEmpty {
-                let item = NSPasteboardItem()
-                for (typeStr, data) in saved {
-                    item.setData(data, forType: NSPasteboard.PasteboardType(typeStr))
-                }
-                pb.writeObjects([item])
-            }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+            self?.restorePasteboard(pb, snapshot: saved)
         }
+    }
+
+    // MARK: - Pasteboard snapshot helpers
+
+    /// Snapshot every (type, data) on every item so we can fully restore after a probe/paste.
+    /// The previous implementation only grabbed `types.first`, silently dropping alternate
+    /// representations (e.g. RTF alongside plain string).
+    private func snapshotPasteboard(_ pb: NSPasteboard) -> [[(String, Data)]] {
+        pb.pasteboardItems?.map { item in
+            item.types.compactMap { type -> (String, Data)? in
+                guard let data = item.data(forType: type) else { return nil }
+                return (type.rawValue, data)
+            }
+        } ?? []
+    }
+
+    private func restorePasteboard(_ pb: NSPasteboard, snapshot: [[(String, Data)]]) {
+        pb.clearContents()
+        guard !snapshot.isEmpty else { return }
+        let items = snapshot.map { pairs -> NSPasteboardItem in
+            let item = NSPasteboardItem()
+            for (typeStr, data) in pairs {
+                item.setData(data, forType: NSPasteboard.PasteboardType(typeStr))
+            }
+            return item
+        }
+        pb.writeObjects(items)
+    }
+
+    /// Writes a string to the pasteboard tagged with the nspasteboard.org "concealed"
+    /// UTI so clipboard managers skip it and don't spam the user's history.
+    private func writeTransientString(_ text: String, to pb: NSPasteboard) {
+        pb.clearContents()
+        let item = NSPasteboardItem()
+        item.setString(text, forType: .string)
+        item.setData(Data(), forType: Self.concealedType)
+        pb.writeObjects([item])
     }
 
     // MARK: - Synthetic event helper
